@@ -36,3 +36,23 @@ SELECT
   ) AS label
 FROM base;
 -----------------------
+
+
+SELECT
+  predicted_label,
+  predicted_label_probs,
+  *
+FROM
+  ML.PREDICT(
+    MODEL `project_id.dataset_name.boosted_tree_model`,
+    (
+      SELECT
+        * EXCEPT(label)
+      FROM
+        `project_id.dataset_name.training_table`
+      LIMIT 10
+    )
+  );
+
+
+---------------------------
