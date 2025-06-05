@@ -1,0 +1,61 @@
+CREATE OR REPLACE MODEL `project_id.dataset_name.boosted_tree_model`
+OPTIONS (
+  model_type = 'BOOSTED_TREE_CLASSIFIER',
+  input_label_cols = ['label'],
+
+  -- Hyperparameters
+  max_iterations = 100,         -- Number of boosting iterations
+  learn_rate = 0.05,            -- Learning rate
+  max_tree_depth = 6,           -- Maximum depth of each tree
+  subsample = 0.7,              -- Row sampling ratio
+  colsample_bytree = 0.8,       -- Column sampling ratio per tree
+  min_split_loss = 1.0,         -- Minimum loss reduction required to make a further partition (gamma)
+  l1_reg = 0.1,                 -- L1 regularization term
+  l2_reg = 1.0,                 -- L2 regularization term
+  data_split_method = 'AUTO',   -- Let BQML auto-split train/eval sets
+  enable_global_explain = TRUE  -- Enables SHAP explainability
+) AS
+SELECT
+  feature1,
+  feature2,
+  feature3,
+  feature4,
+  feature5,
+  feature6,
+  feature7,
+  feature8,
+  feature9,
+  feature10,
+  label
+FROM
+  `project_id.dataset_name.training_table`;
+--------------------------------
+
+  SELECT
+  *
+FROM
+  ML.EVALUATE(MODEL `project_id.dataset_name.boosted_tree_model`);
+---------------------
+
+  SELECT
+  predicted_label,
+  predicted_label_probs,
+  *
+FROM
+  ML.PREDICT(MODEL `project_id.dataset_name.boosted_tree_model`,
+    (
+      SELECT
+        feature1,
+        feature2,
+        feature3,
+        feature4,
+        feature5,
+        feature6,
+        feature7,
+        feature8,
+        feature9,
+        feature10
+      FROM
+        `project_id.dataset_name.predict_table`
+    ));
+------------
