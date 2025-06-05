@@ -59,3 +59,32 @@ FROM
         `project_id.dataset_name.predict_table`
     ));
 ------------
+
+CREATE OR REPLACE TABLE `project_id.dataset_name.training_table` AS
+SELECT
+  CAST(RAND() * 10 AS FLOAT64) AS feature_float1,
+  CAST(RAND() * 100 AS FLOAT64) AS feature_float2,
+  CAST(RAND() * 50 AS FLOAT64) AS feature_float3,
+  CAST(RAND() * 0.5 AS FLOAT64) AS feature_float4,
+  CAST(RAND() * 200 AS FLOAT64) AS feature_float5,
+  CAST(RAND() * 5 AS FLOAT64) AS feature_float6,
+  CAST(RAND() * 300 AS FLOAT64) AS feature_float7,
+  CAST(RAND() * 2 AS FLOAT64) AS feature_float8,
+  CAST(RAND() * 3 AS FLOAT64) AS feature_float9,
+  CAST(RAND() * 4 AS FLOAT64) AS feature_float10,
+
+  CAST(FLOOR(RAND() * 10) AS INT64) AS feature_int1,
+  CAST(FLOOR(RAND() * 100) AS INT64) AS feature_int2,
+  CAST(FLOOR(RAND() * 3) AS INT64) AS feature_int3,
+  CAST(FLOOR(RAND() * 7) AS INT64) AS feature_int4,
+  CAST(FLOOR(RAND() * 15) AS INT64) AS feature_int5,
+
+  -- Simple rule to generate binary label using a mix of features + noise
+  IF(
+    (feature_float1 + feature_float2 * 0.1 + feature_int1 * 0.05 + RAND()) > 10,
+    1,
+    0
+  ) AS label
+FROM
+  UNNEST(GENERATE_ARRAY(1, 1000)) AS row_id;
+------------------------
