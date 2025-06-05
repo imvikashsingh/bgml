@@ -1,42 +1,3 @@
-CREATE OR REPLACE MODEL `project_id.dataset_name.boosted_tree_model`
-OPTIONS (
-  model_type = 'BOOSTED_TREE_CLASSIFIER',
-  input_label_cols = ['label'],
-  max_iterations = 100,
-  learn_rate = 0.05,
-  subsample = 0.8,
-  colsample_bytree = 0.8,
-  max_tree_depth = 6,
-  l1_reg = 0.1,
-  l2_reg = 1.0,
-  enable_global_explain = TRUE
-) AS
-SELECT
-  * EXCEPT(label)
-FROM
-  `project_id.dataset_name.training_table`;
-
-
-======================
-
-SELECT
-  predicted_label,
-  predicted_label_probs,
-  *
-FROM
-  ML.PREDICT(
-    MODEL `project_id.dataset_name.boosted_tree_model`,
-    (
-      SELECT
-        * EXCEPT(label)
-      FROM
-        `project_id.dataset_name.training_table`
-      LIMIT 10
-    )
-  );
-
-----------------
-
 CREATE OR REPLACE TABLE `project_id.dataset_name.training_table` AS
 WITH base AS (
   SELECT
@@ -67,32 +28,11 @@ WITH base AS (
 
 SELECT
   *,
-  -- Create a label based on some logic with randomness
+  -- Adjusted threshold to make roughly half 1s and half 0s
   IF(
-    feature_float1 + feature_float2 * 0.05 + feature_int1 * 0.1 + RAND() > 20,
+    feature_float1 + feature_float2 * 0.05 + feature_int1 * 0.1 + RAND() * 5 > 15,
     1,
     0
   ) AS label
 FROM base;
------
-
-
-CREATE OR REPLACE MODEL `project_id.dataset_name.boosted_tree_model`
-OPTIONS (
-  model_type = 'BOOSTED_TREE_CLASSIFIER',
-  input_label_cols = ['label'],
-  max_iterations = 100,
-  learn_rate = 0.05,
-  subsample = 0.8,
-  colsample_bytree = 0.8,
-  enable_global_explain = TRUE
-) AS
-SELECT
-  -- Exclude customer_id and month_year from training
-  feature_float1, feature_float2, feature_float3, feature_float4, feature_float5,
-  feature_float6, feature_float7, feature_float8, feature_float9, feature_float10,
-  feature_int1, feature_int2, feature_int3, feature_int4, feature_int5,
-  label
-FROM
-  `project_id.dataset_name.training_table`;
----------------
+-----------------------
