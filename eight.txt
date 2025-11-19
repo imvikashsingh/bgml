@@ -1,0 +1,74 @@
+import pandas as pd
+import numpy as np
+import os
+
+
+def generate_huge_data():
+    """Generate huge dataset to cause memory issues"""
+    print("Generating huge dataset...")
+
+    # Create a very large dataset
+    num_rows = 10000000  # 10 million rows
+
+    data = {
+        'id': range(num_rows),
+        'name': [f'Product_{i}' * 10 for i in range(num_rows)],  # Large strings
+        'price': np.random.uniform(10, 1000, num_rows),
+        'quantity': np.random.randint(1, 100, num_rows),
+        'category': [f'Category_{i % 1000}' for i in range(num_rows)],
+        'description': [f'Very long description text for product {i} ' * 5 for i in range(num_rows)]
+    }
+
+    print("Creating DataFrame...")
+    df = pd.DataFrame(data)
+    return df
+
+
+def transform_data(df):
+    """Apply memory-intensive transformations"""
+    print("Applying transformations...")
+
+    # Memory-intensive operations
+    df['total_value'] = df['price'] * df['quantity']
+    df['discounted_price'] = df['price'] * 0.9
+
+    # Create multiple copies (memory intensive)
+    df_copy1 = df.copy()
+    df_copy2 = df.copy()
+
+    # String operations (very memory intensive)
+    df['name_upper'] = df['name'].str.upper()
+    df['description_upper'] = df['description'].str.upper()
+
+    # Group by operations
+    grouped = df.groupby('category').agg({'price': ['mean', 'sum']})
+
+    return df, grouped
+
+
+def save_large_csv(df, filename='huge_data.csv'):
+    """Save huge dataframe to CSV"""
+    print(f"Saving to {filename}...")
+    df.to_csv(filename, index=False)
+    print("Save completed!")
+
+
+# Main execution
+if __name__ == "__main__":
+    try:
+        # Step 1: Generate huge data
+        df = generate_huge_data()
+        print(f"DataFrame size: {len(df)} rows")
+        print(f"Memory usage: {df.memory_usage(deep=True).sum() / 1024 / 1024 / 1024:.2f} GB")
+
+        # Step 2: Transform data (uses more memory)
+        df_transformed, grouped = transform_data(df)
+
+        # Step 3: Save to CSV (might fail due to memory)
+        save_large_csv(df_transformed, 'massive_dataset.csv')
+
+    except MemoryError as e:
+        print(f"*** MEMORY ERROR: {e} ***")
+        print("JDK out of memory error achieved!")
+    except Exception as e:
+        print(f"Error: {e}")
