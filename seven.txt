@@ -1,0 +1,279 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+
+
+class LargeDataMapInPandas:
+    def __init__(self):
+        # Initialize Spark with more memory and partitions
+        self.spark = SparkSession.builder \
+            .appName("LargeDataMapInPandas") \
+            .config("spark.sql.adaptive.enabled", "true") \
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
+            .config("spark.sql.shuffle.partitions", "200") \
+            .config("spark.executor.memory", "2g") \
+            .config("spark.driver.memory", "2g") \
+            .master("local[*]") \
+            .getOrCreate()
+
+        self.spark.sparkContext.setLogLevel("WARN")
+
+    def generate_huge_spark_data(self, num_rows=10000000, num_partitions=100):
+        """Generate HUGE dataset similar to pandas memory crash example"""
+        print(f"Generating {num_rows:,} records with Spark (same as pandas example)...")
+
+        # Create base DataFrame with many partitions
+        df = self.spark.range(0, num_rows, numPartitions=num_partitions)
+
+        # Add LARGE data columns like in pandas example
+        df = df.withColumn("id", col("id")) \
+            .withColumn("name", concat(lit("Product_"), col("id"), lit("_") * 10)) \
+            .withColumn("price", (rand() * 990 + 10).cast("decimal(10,2)")) \
+            .withColumn("quantity", (rand() * 99 + 1).cast("int")) \
+            .withColumn("category", concat(lit("Category_"), (col("id") % 1000).cast("int"))) \
+            .withColumn("description", concat(lit("Very long description text for product "),
+                                              col("id"), lit(" ") * 50))
+
+        print(f"Generated Spark DataFrame with {df.count():,} rows")
+        print(f"Number of partitions: {df.rdd.getNumPartitions()}")
+        return df
+
+    def pandas_memory_intensive_transformations(self, pdf):
+        """Apply the same memory-intensive pandas transformations"""
+        print(f"Processing pandas DataFrame with {len(pdf):,} rows...")
+
+        # Same transformations as pandas memory crash example
+        pdf = pdf.copy()
+
+        # Memory-intensive operations
+        pdf['total_value'] = pdf['price'] * pdf['quantity']
+        pdf['discounted_price'] = pdf['price'] * 0.9
+
+        # String operations (very memory intensive)
+        pdf['name_upper'] = pdf['name'].str.upper()
+        pdf['description_upper'] = pdf['description'].str.upper()
+
+        # Create multiple calculated columns
+        pdf['price_category'] = np.where(pdf['price'] < 100, 'Low',
+                                         np.where(pdf['price'] < 500, 'Medium', 'High'))
+
+        pdf['quantity_tier'] = np.where(pdf['quantity'] < 10, 'Small',
+                                        np.where(pdf['quantity'] < 50, 'Medium', 'Large'))
+
+        # More memory-intensive operations
+        pdf['extended_description'] = pdf['description'] + " - " + pdf['name_upper']
+        pdf['value_ratio'] = pdf['total_value'] / pdf['price']
+
+        return pdf
+
+    def apply_map_in_pandas_large(self, df):
+        """Apply pandas transformations using mapInPandas on large data"""
+        print("Applying memory-intensive transformations using mapInPandas...")
+
+        # Define output schema for all columns
+        output_schema = StructType([
+            StructField("id", LongType(), True),
+            StructField("name", StringType(), True),
+            StructField("price", DoubleType(), True),
+            StructField("quantity", IntegerType(), True),
+            StructField("category", StringType(), True),
+            StructField("description", StringType(), True),
+            StructField("total_value", DoubleType(), True),
+            StructField("discounted_price", DoubleType(), True),
+            StructField("name_upper", StringType(), True),
+            StructField("description_upper", StringType(), True),
+            StructField("price_category", StringType(), True),
+            StructField("quantity_tier", StringType(), True),
+            StructField("extended_description", StringType(), True),
+            StructField("value_ratio", DoubleType(), True)
+        ])
+
+        def transform_iterator(iterator):
+            for pdf in iterator:
+                yield self.pandas_memory_intensive_transformations(pdf)
+
+        # Apply mapInPandas
+        result_df = df.mapInPandas(transform_iterator, schema=output_schema)
+
+        print("mapInPandas transformations completed on large dataset")
+        return result_df
+
+    def save_large_data(self, df, output_path):
+        """Save large Spark DataFrame to CSV"""
+        print(f"Saving large dataset to {output_path}...")
+
+        # Write with many partitions for parallelism
+        df.write \
+            .mode("overwrite") \
+            .option("header", "true") \
+            .option("maxRecordsPerFile", 100000) \
+            .csv(output_path)
+
+        record_count = df.count()
+        print(f"Saved {record_count:,} records to {output_path}")
+
+        return record_count
+
+    def run_large_data_pipeline(self):
+        """Run pipeline with same data size as pandas memory crash example"""
+        print("=== RUNNING LARGE DATA PIPELINE WITH MAPINPANDAS ===")
+        print("Generating 10 MILLION records (same as pandas example)...")
+
+        try:
+            # Step 1: Generate HUGE data (same size as pandas example)
+            print("\n1. GENERATING 10 MILLION RECORDS")
+            df = self.generate_huge_spark_data(num_rows=10000000, num_partitions=200)
+
+            # Show sample
+            print("\nData sample:")
+            df.select("id", "name", "price", "quantity").show(5, truncate=True)
+
+            # Step 2: Apply same pandas transformations using mapInPandas
+            print("\n2. APPLYING MEMORY-INTENSIVE TRANSFORMATIONS")
+            df_transformed = self.apply_map_in_pandas_large(df)
+
+            # Show transformed sample
+            print("\nTransformed data sample:")
+            df_transformed.select("id", "price", "quantity", "total_value", "price_category").show(5)
+
+            # Step 3: Save results
+            print("\n3. SAVING LARGE DATASET")
+            self.save_large_data(df_transformed, "output/large_map_in_pandas_output")
+
+            # Step 4: Show summary
+            print("\n4. FINAL SUMMARY")
+            self.show_large_data_summary(df_transformed)
+
+            print("\n SUCCESS: Processed 10M records without memory issues!")
+
+        except Exception as e:
+            print(f"\ ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_large_data_summary(self, df):
+        """Show summary of large dataset"""
+        print("\n=== LARGE DATASET SUMMARY ===")
+
+        total_records = df.count()
+        print(f"Total records processed: {total_records:,}")
+
+        print("\nMemory usage per partition (estimated):")
+        df.explain()
+
+        print("\nData distribution by price category:")
+        df.groupBy("price_category") \
+            .agg(
+            count("id").alias("count"),
+            avg("price").alias("avg_price"),
+            sum("total_value").alias("total_value")
+        ) \
+            .show()
+
+        print("\nData distribution by quantity tier:")
+        df.groupBy("quantity_tier") \
+            .agg(
+            count("id").alias("count"),
+            avg("quantity").alias("avg_quantity")
+        ) \
+            .show()
+
+    def stop_spark(self):
+        """Stop Spark session"""
+        self.spark.stop()
+        print("Spark session stopped")
+
+
+# Even larger data example - 50 million records
+def extreme_large_data_example():
+    """Try to process 50 million records - same as extreme pandas example"""
+
+    spark = SparkSession.builder \
+        .appName("ExtremeLargeData") \
+        .config("spark.sql.adaptive.enabled", "true") \
+        .config("spark.sql.shuffle.partitions", "500") \
+        .config("spark.executor.memory", "4g") \
+        .config("spark.driver.memory", "4g") \
+        .master("local[*]") \
+        .getOrCreate()
+
+    try:
+        print("=== EXTREME LARGE DATA EXAMPLE ===")
+        print("Generating 50 MILLION records...")
+
+        # Generate 50 million records
+        df = spark.range(0, 50000000, numPartitions=500)
+
+        # Add data columns
+        df = df.withColumn("product_id", col("id")) \
+            .withColumn("product_name", concat(lit("Product_"), col("id"))) \
+            .withColumn("sales_price", (rand() * 1000 + 1).cast("decimal(10,2)")) \
+            .withColumn("units_sold", (rand() * 100 + 1).cast("int")) \
+            .withColumn("long_description", concat(lit("Desc_"), col("id"), lit("_") * 100))
+
+        print(f"Generated {df.count():,} records")
+
+        # Define schema for mapInPandas
+        output_schema = StructType([
+            StructField("id", LongType(), True),
+            StructField("product_id", LongType(), True),
+            StructField("product_name", StringType(), True),
+            StructField("sales_price", DoubleType(), True),
+            StructField("units_sold", IntegerType(), True),
+            StructField("long_description", StringType(), True),
+            StructField("total_revenue", DoubleType(), True),
+            StructField("discounted_price", DoubleType(), True)
+        ])
+
+        def pandas_transform(iterator):
+            for pdf in iterator:
+                # Same pandas operations
+                pdf = pdf.copy()
+                pdf['total_revenue'] = pdf['sales_price'] * pdf['units_sold']
+                pdf['discounted_price'] = pdf['sales_price'] * 0.85
+                yield pdf
+
+        # Apply transformations
+        result_df = df.mapInPandas(pandas_transform, schema=output_schema)
+
+        # Force execution and show results
+        count = result_df.count()
+        print(f"Successfully processed {count:,} records with mapInPandas!")
+
+        # Save sample
+        result_df.limit(1000).write.mode("overwrite").csv("output/extreme_large_sample", header=True)
+
+    except Exception as e:
+        print(f"Error in extreme example: {e}")
+    finally:
+        spark.stop()
+
+
+# Main execution
+if __name__ == "__main__":
+    # Run the main large data pipeline
+    pipeline = LargeDataMapInPandas()
+
+    try:
+        # Run with 10 million records (same as pandas example)
+        pipeline.run_large_data_pipeline()
+
+        print("\n" + "=" * 80)
+        print("ATTEMPTING EXTREME DATA VOLUME (50M RECORDS)")
+        print("=" * 80)
+
+        # Try even larger dataset
+        extreme_large_data_example()
+
+    except Exception as e:
+        print(f"Pipeline error: {e}")
+
+    finally:
+        pipeline.stop_spark()
+
+
+
+        
