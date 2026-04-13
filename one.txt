@@ -1,11 +1,4 @@
 
-Here's your **voiceover script** converted for easy reading during video recording. I've rewritten everything in a natural, conversational tone.
-
----
-
-## Voiceover Script for Demo Video
-
-### Introduction (Before starting)
 
 > "Hi, I'm going to walk you through the key components of my AI agent system. I'll explain each module's purpose and how they work together to create a complete research assistant."
 
