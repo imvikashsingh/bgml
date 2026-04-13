@@ -1,1 +1,181 @@
 
+Here's your **voiceover script** converted for easy reading during video recording. I've rewritten everything in a natural, conversational tone.
+
+---
+
+## Voiceover Script for Demo Video
+
+### Introduction (Before starting)
+
+> "Hi, I'm going to walk you through the key components of my AI agent system. I'll explain each module's purpose and how they work together to create a complete research assistant."
+
+---
+
+## Part 1: Context Manager (`src/ra_agent/context.py`)
+
+### What to Say:
+
+> "Let me start with the **Context Manager** - I like to think of this as the **memory** of my agent.
+>
+> Think of it like a whiteboard that can only hold 4000 tokens worth of information. The Context Manager decides what stays and what gets erased.
+>
+> It tracks three things: the user's original goal, the execution plan, and completed tasks. When we're planning, it only shows the goal. During execution, it shows the current task plus the last 3 completed tasks. This prevents token overflow while keeping the most relevant information.
+>
+> The magic happens in the truncation - search results get cut to 500 characters, URL content to 1000 characters. This keeps the LLM focused without losing critical context."
+
+### Screen Show:
+- Highlight the `ContextManager` class
+- Show the `max_tokens=4000` default
+- Show the `completed_tasks[-3:]` sliding window
+- Show the `_truncate_result()` method
+
+---
+
+## Part 2: Executor (`src/ra_agent/executor.py`)
+
+### What to Say:
+
+> "Next is the **Executor** - this is the **action engine** of my agent. If the Context Manager is the memory, the Executor is the hands doing the work.
+>
+> Here's how it works: It takes the plan from the planner, loops through each task, and executes them one by one. For search tasks, it calls the search tool. For summarize tasks, it calls the LLM. For read tasks, it fetches URL content.
+>
+> What I love about this design is transparency. Every step is logged - you see exactly what the agent is doing. 'Executing task 1 of 3' - you know the progress. 'Searching for Python frameworks' - you know what it's looking for.
+>
+> After each task, it updates the context manager with the result. Then the next task can use that information. This creates a chain of reasoning - each step builds on the previous ones."
+
+### Screen Show:
+- Show the `execute_plan()` method
+- Highlight the `for task in tasks` loop
+- Show the `if task.type == "search"` conditional
+- Show the `context.add_task_result()` call
+
+---
+
+## Part 3: LLM Client (`src/ra_agent/llm.py`)
+
+### What to Say:
+
+> "The **LLM Client** is my **communication layer** to AI models. I designed this to be a thin wrapper - it just handles the API calls and nothing else.
+>
+> Currently it's configured for OpenAI, but notice how the rest of the code never touches OpenAI directly. This means I can swap providers easily. Want to use Ollama locally? Just change the base URL. Want to use Anthropic? Just modify this one file.
+>
+> Environment variables keep API keys secure - they never appear in the code. The client reads from `.env` file, so I can commit my code without exposing secrets.
+>
+> This abstraction keeps the agent logic clean. The planner doesn't care HOW the LLM works, it just calls `llm.chat()` and gets a response."
+
+### Screen Show:
+- Show the `LLMClient` class
+- Highlight the `__init__` reading environment variables
+- Show the `chat()` method
+- Show the `.env` file with API key
+
+---
+
+## Part 4: Planner (`src/ra_agent/planner.py`)
+
+### What to Say:
+
+> "The **Planner** is the **strategy builder**. This is where vague user goals become concrete action plans.
+>
+> For example, 'Compare Python and JavaScript' becomes three specific tasks: search Python frameworks, search JavaScript frameworks, then summarize the comparison.
+>
+> The output is always JSON - structured, predictable, easy to parse. I force the LLM to output only JSON by using a strict system prompt.
+>
+> But LLMs can be unreliable, so I built fallbacks. If JSON parsing fails, it returns a simple two-task plan: search then summarize. If the LLM is completely down, it still gives the user something useful.
+>
+> Each task gets required fields - description, type, and query. The planner validates this before returning, so the executor never gets malformed tasks."
+
+### Screen Show:
+- Show the `create_plan()` method
+- Show the JSON prompt template
+- Show the `_extract_json()` helper
+- Show the `_fallback_plan()` method
+
+---
+
+## Part 5: Prompts (`src/ra_agent/prompts.py`)
+
+### What to Say:
+
+> "The **Prompts module** is my **prompt library** - all the instructions the LLM receives live here.
+>
+> Why separate prompts from logic? Two reasons. First, it makes tweaking prompts easy - I don't need to dig through code to change wording. Second, it keeps the planner and executor clean - they just use `prompts.PLANNING_PROMPT.format(goal=goal)`.
+>
+> Each prompt has placeholders like `{user_goal}` or `{context}`. The code fills these in at runtime. This is how I keep prompts dynamic without string concatenation everywhere.
+>
+> The planning prompt includes examples - this is few-shot prompting. By showing the LLM what good output looks like, I get much more reliable JSON responses."
+
+### Screen Show:
+- Show the `prompts.py` file
+- Highlight the `PLANNING_PROMPT` with placeholders
+- Show the example in the prompt
+- Show how it's used in `planner.py`
+
+---
+
+## Part 6: Tools (`src/ra_agent/tools.py`)
+
+### What to Say:
+
+> "Finally, the **Tools module** - this is the **toolbox** for real-world actions. The agent can't just think, it needs to gather information from outside.
+>
+> I integrated Tavily search because it's optimized for LLMs. Unlike regular search engines that return messy HTML, Tavily returns clean, structured data with an AI-generated answer and relevant snippets.
+>
+> The URL reader fetches web pages directly. This lets the agent dive deeper into specific sources it finds during searches.
+>
+> Notice the error handling - if Tavily fails, it doesn't crash. it will be graceful failure.
+>
+> This toolbox is extensible - adding a new tool is just adding a new method here."
+
+### Screen Show:
+- Show the `Tools` class
+- Show the `tavily_search()` method
+- Show the `read_url()` method
+- Show the error handling with try/except
+
+---
+
+## Conclusion Script (After showing all components)
+
+### What to Say:
+
+> "So that's the complete architecture:
+>
+> - **Context Manager** manages memory
+> - **Planner** builds the strategy
+> - **Executor** takes action
+> - **LLM Client** handles AI communication
+> - **Prompts** standardize instructions
+> - **Tools** gather real-world data
+>
+> Everything works together in a loop: goal comes in, planner creates tasks, executor runs them using tools and LLM, context manager keeps everything within limits, and the user gets a clean, actionable result.
+>
+> The best part? No agent frameworks. This is pure Python, giving me complete control and transparency.
+>
+> Thanks for watching!"
+
+---
+
+## Quick Reference Card (Print This)
+
+| Time | Component | One-Liner |
+|------|-----------|-----------|
+| 0:00 | Context Manager | "Memory management - decides what to keep, what to drop" |
+| 1:00 | Executor | "Action engine - runs tasks sequentially" |
+| 2:00 | LLM Client | "Communication layer - abstracts API calls" |
+| 2:30 | Planner | "Strategy builder - turns goals into tasks" |
+| 3:30 | Prompts | "Prompt library - standardizes LLM instructions" |
+| 4:00 | Tools | "Toolbox - real-world data gathering" |
+| 4:30 | Conclusion | "Everything works together in a loop" |
+
+---
+
+## Tips for Recording
+
+1. **Speak slowly** - You'll naturally speed up when nervous
+2. **Pause between sections** - Gives you time to breathe and edit
+3. **Use the one-liner** if you get lost - just say the component name and move on
+4. **Practice twice** before recording
+5. **Keep water nearby** - your throat will get dry
+
+This script is designed to be **read naturally** - just speak it conversationally!
